@@ -1,0 +1,269 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Unit Step Function Calculator</title>
+  <style>
+    body { font-family: system-ui, Arial, sans-serif; margin: 0; background: #0f0f12; color: #eaeaea; }
+    header { padding: 16px 18px; border-bottom: 1px solid #2a2a33; }
+    h1 { margin: 0; font-size: 18px; }
+    .wrap { padding: 16px 18px; max-width: 1100px; margin: 0 auto; }
+    .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+    .tabbtn {
+      border: 1px solid #2a2a33; background: #171720; color: #eaeaea;
+      padding: 10px 12px; border-radius: 10px; cursor: pointer;
+    }
+    .tabbtn.active { background: #232334; border-color: #3a3a55; }
+    .panel { display: none; border: 1px solid #2a2a33; background: #14141b; border-radius: 14px; padding: 14px; }
+    .panel.active { display: block; }
+
+    .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+    .field { display: grid; gap: 6px; }
+    label { font-size: 12px; color: #bdbdd6; }
+    input, select, button {
+      font-size: 14px; border-radius: 10px; border: 1px solid #2a2a33;
+      padding: 10px 10px; background: #0f0f12; color: #eaeaea;
+    }
+    button { cursor: pointer; background: #232334; }
+    button:hover { background: #2c2c42; }
+    .result { margin-top: 12px; padding: 12px; border-radius: 12px; background: #0f0f12; border: 1px solid #2a2a33; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #2a2a33; }
+    th { color: #bdbdd6; font-weight: 600; }
+    #plotImg { width: 100%; border-radius: 14px; border: 1px solid #2a2a33; background: #0f0f12; }
+    .hint { margin-top: 10px; font-size: 12px; color: #bdbdd6; }
+    .small { font-size: 12px; color: #bdbdd6; margin-top: 8px; }
+  </style>
+</head>
+
+<body>
+  <header><h1>Unit Step Function Calculator</h1></header>
+
+  <div class="wrap">
+    <div class="tabs">
+      <button class="tabbtn active" data-tab="eval">1) Evaluator</button>
+      <button class="tabbtn" data-tab="piece">2) Piecewise Builder</button>
+      <button class="tabbtn" data-tab="graph">3) Graph (Matplotlib)</button>
+    </div>
+
+    <!-- 1) Evaluator -->
+    <div id="eval" class="panel active">
+      <h2 style="margin-top:0;">Evaluator: u(t − a)</h2>
+
+      <div class="row">
+        <div class="field">
+          <label>t</label>
+          <input id="tInput" type="number" value="0" step="0.1">
+        </div>
+        <div class="field">
+          <label>shift a</label>
+          <input id="aInput" type="number" value="0" step="0.1">
+        </div>
+        <div class="field">
+          <label>u(0)</label>
+          <select id="atZero">
+            <option value="1" selected>1 (common)</option>
+            <option value="0">0</option>
+          </select>
+        </div>
+        <button id="evalBtn">Compute</button>
+      </div>
+
+      <div class="result" id="evalOut">Enter values and press <b>Compute</b>.</div>
+    </div>
+
+    <!-- 2) Piecewise builder -->
+    <div id="piece" class="panel">
+      <h2 style="margin-top:0;">Piecewise Builder: f(t) = c + Σ k·u(t − a)</h2>
+
+      <div class="row">
+        <div class="field">
+          <label>c</label>
+          <input id="cInput" type="number" value="0" step="0.1">
+        </div>
+        <div class="field">
+          <label>u(0)</label>
+          <select id="pieceAtZero">
+            <option value="1" selected>1 (common)</option>
+            <option value="0">0</option>
+          </select>
+        </div>
+
+        <button id="addTermBtn">+ Add step term</button>
+        <button id="buildBtn">Build piecewise</button>
+      </div>
+
+      <div class="small">Each term is <b>k · u(t − a)</b>. Example: k=3, a=2 means +3 turns on at t=2.</div>
+
+      <div id="terms" style="margin-top:12px; display:grid; gap:10px;"></div>
+
+      <div class="result" id="pieceOut">Add terms, then click <b>Build piecewise</b>.</div>
+    </div>
+
+    <!-- 3) Graph -->
+    <div id="graph" class="panel">
+      <h2 style="margin-top:0;">Graph: f(t) = c + A·u(t − a)</h2>
+
+      <div class="row">
+        <div class="field">
+          <label>A</label>
+          <input id="A" type="number" value="1" step="0.1">
+        </div>
+        <div class="field">
+          <label>a</label>
+          <input id="ga" type="number" value="0" step="0.1">
+        </div>
+        <div class="field">
+          <label>c</label>
+          <input id="gc" type="number" value="0" step="0.1">
+        </div>
+        <div class="field">
+          <label>u(0)</label>
+          <select id="gAtZero">
+            <option value="1" selected>1 (common)</option>
+            <option value="0">0</option>
+          </select>
+        </div>
+        <button id="graphBtn">Update graph</button>
+      </div>
+
+      <div style="margin-top:12px;">
+        <img id="plotImg" alt="Matplotlib plot will appear here">
+      </div>
+      <div class="hint">This graph is generated by Python (matplotlib) on the server and sent as an image.</div>
+    </div>
+  </div>
+
+  <script>
+    // ---- Tabs ----
+    const tabButtons = document.querySelectorAll(".tabbtn");
+    const panels = document.querySelectorAll(".panel");
+
+    tabButtons.forEach(btn => {
+      btn.addEventListener("click", () => {
+        tabButtons.forEach(b => b.classList.remove("active"));
+        panels.forEach(p => p.classList.remove("active"));
+        btn.classList.add("active");
+        document.getElementById(btn.dataset.tab).classList.add("active");
+      });
+    });
+
+    // ---- 1) Evaluator ----
+    document.getElementById("evalBtn").addEventListener("click", async () => {
+      const out = document.getElementById("evalOut");
+      out.textContent = "Calculating...";
+
+      try {
+        const t = document.getElementById("tInput").value;
+        const a = document.getElementById("aInput").value;
+        const at_zero = document.getElementById("atZero").value;
+
+        const res = await fetch(`/api/eval?t=${encodeURIComponent(t)}&a=${encodeURIComponent(a)}&at_zero=${encodeURIComponent(at_zero)}`);
+        if (!res.ok) throw new Error(`Server error ${res.status}`);
+
+        const data = await res.json();
+        out.innerHTML = `<b>u(t-a) = u(${data.t} - ${data.a}) = u(${data.x}) = ${data.result}</b>`;
+      } catch (e) {
+        out.textContent = "Error: evaluator request failed. Make sure Flask is running and /api/eval exists.";
+      }
+    });
+
+    // ---- 2) Piecewise Builder UI ----
+    const termsDiv = document.getElementById("terms");
+
+    function addTerm(k = 1, a = 0) {
+      const row = document.createElement("div");
+      row.style.display = "flex";
+      row.style.gap = "10px";
+      row.style.flexWrap = "wrap";
+      row.style.alignItems = "end";
+      row.style.padding = "10px";
+      row.style.border = "1px solid #2a2a33";
+      row.style.borderRadius = "12px";
+
+      row.innerHTML = `
+        <div class="field">
+          <label>k</label>
+          <input class="k" type="number" value="${k}" step="0.1">
+        </div>
+        <div class="field">
+          <label>a</label>
+          <input class="a" type="number" value="${a}" step="0.1">
+        </div>
+        <button class="remove">Remove</button>
+      `;
+
+      row.querySelector(".remove").addEventListener("click", () => row.remove());
+      termsDiv.appendChild(row);
+    }
+
+    document.getElementById("addTermBtn").addEventListener("click", () => addTerm(1, 0));
+    addTerm(3, 2);
+    addTerm(-2, 4);
+
+    // ---- 2) Piecewise builder ->
+    document.getElementById("buildBtn").addEventListener("click", async () => {
+      const out = document.getElementById("pieceOut");
+      out.textContent = "Building piecewise...";
+
+      try {
+        const c = Number(document.getElementById("cInput").value);
+        const at_zero = Number(document.getElementById("pieceAtZero").value);
+
+        const terms = Array.from(termsDiv.children).map(r => ({
+          k: Number(r.querySelector(".k").value),
+          a: Number(r.querySelector(".a").value)
+        }));
+
+        const res = await fetch("/api/piecewise", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({ c, at_zero, terms })
+        });
+        if (!res.ok) throw new Error(`Server error ${res.status}`);
+
+        const data = await res.json();
+
+        let html = `<div><b>Piecewise result:</b></div>`;
+        html += `<table><thead><tr><th>Interval</th><th>Value</th></tr></thead><tbody>`;
+        for (const p of data.pieces) {
+          html += `<tr><td>${p.interval}</td><td>${p.value}</td></tr>`;
+        }
+        html += `</tbody></table>`;
+        out.innerHTML = html;
+      } catch (e) {
+        out.textContent = "Error: piecewise request failed. Make sure Flask is running and /api/piecewise exists.";
+      }
+    });
+
+    // ---- 3) Graph ----
+    function updateGraph() {
+      const A = document.getElementById("A").value;
+      const a = document.getElementById("ga").value;
+      const c = document.getElementById("gc").value;
+      const at_zero = document.getElementById("gAtZero").value;
+
+      const url = `/plot.png?A=${encodeURIComponent(A)}&a=${encodeURIComponent(a)}&c=${encodeURIComponent(c)}&at_zero=${encodeURIComponent(at_zero)}&cb=${Date.now()}`;
+      const img = document.getElementById("plotImg");
+      img.alt = "Loading graph...";
+      img.src = url;
+      img.onerror = () => { img.alt = "Graph failed to load (server error)."; };
+    }
+
+    document.getElementById("graphBtn").addEventListener("click", updateGraph);
+    updateGraph();
+  </script>
+
+  <footer style="
+    margin-top: 40px;
+    padding: 16px 18px;
+    text-align: center;
+    font-size: 12px;
+    color: #bdbdd6;
+    border-top: 1px solid #2a2a33;
+  ">
+    Project created by <strong>Rick Lin and Priyo Datta</strong>
+  </footer>
+</body>
+</html>
